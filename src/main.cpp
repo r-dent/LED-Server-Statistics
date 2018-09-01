@@ -3,8 +3,7 @@
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <WiFiClient.h>
-
+#include <WiFiManager.h>
  
 #define OLED_RESET 0  // GPIO0
 Adafruit_SSD1306 OLED(OLED_RESET);
@@ -47,7 +46,23 @@ void displayLog(const char *text) {
 
   OLED.display();
 }
- 
+
+// WiFi related.
+
+WiFiManager wifiManager;
+
+void wifiConfigModeCallback (WiFiManager *myWiFiManager) {
+  displayLog("Entered config mode");
+}
+
+void wifiSaveConfigCallback () {
+  displayLog("Sucessfully connected");
+}
+
+/*
+ * Setup 
+ */
+
 void setup()   {
   Serial.begin(115200);
 
@@ -64,8 +79,14 @@ void setup()   {
 
   displayLog("Welcome!");
 
+  wifiManager.setAPCallback(wifiConfigModeCallback);
+  wifiManager.setSaveConfigCallback(wifiSaveConfigCallback);
+  wifiManager.autoConnect();
 } 
- 
+
+/*
+ * Loop 
+ */
 void loop() {
   time_t currTime = millis();
 
@@ -81,6 +102,4 @@ void loop() {
 
     displayLog(blink ? "Switched ON" : "Switched OFF");
   }
-
-  delay(10);
 }
