@@ -52,16 +52,17 @@ void setup()   {
   Serial.begin(115200);
 
   OLED.begin();
-  OLED.clearDisplay();
- 
-  //Add stuff into the 'display buffer'
   OLED.setTextWrap(false);
   OLED.setTextSize(1);
   OLED.setTextColor(WHITE);
-  OLED.setCursor(0,0);
-  OLED.display(); //output 'display buffer' to screen  
 
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
+  // Set LEDs to color.
+  for(int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CHSV(HUE_ORANGE, 255, 0);
+  }
+
+  displayLog("Welcome!");
 
 } 
  
@@ -73,13 +74,13 @@ void loop() {
     blink = !blink;
     lastSwitchTime = currTime;
 
-    displayLog(blink ? "A" : "B");
+    for(int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = CHSV(HUE_ORANGE, 255, 255 * (blink ? 0.5 : 0));
+    }
+    FastLED.show(); 
+
+    displayLog(blink ? "Switched ON" : "Switched OFF");
   }
 
-  for(int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(HUE_ORANGE, 255, 255 * (blink ? 0.5 : 0));
-  }
-
-  FastLED.show();
   delay(10);
 }
