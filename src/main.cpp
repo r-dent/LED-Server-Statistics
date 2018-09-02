@@ -21,23 +21,23 @@ time_t lastSwitchTime = 0;
 const int logMaxLines = 4;
 const int logLineLength = 21;
 int logBufferLines = 0;
-char logBuffer[logMaxLines][logLineLength];
+String logBuffer[logMaxLines];
 
-void displayLog(const char *text) {
+void displayLog(String text) {
   OLED.clearDisplay();
   OLED.setCursor(0, 0);
 
   if (logBufferLines < logMaxLines) {
-    strcpy(logBuffer[logBufferLines], text);
+    logBuffer[logBufferLines] = text;
     logBufferLines = logBufferLines + 1;
   }
   else {
     // Shift buffer content up.
     for (int i = 1; i < logMaxLines; i++) {
-      strcpy(logBuffer[i -1], logBuffer[i]);
+      logBuffer[i -1] = logBuffer[i];
     }
     // Insert new text as last line.
-    strcpy(logBuffer[logMaxLines - 1], text);
+    logBuffer[logMaxLines - 1] = text;
   }
 
   for (int i = 0; i < logBufferLines; i++) {
@@ -82,6 +82,15 @@ void setup()   {
   wifiManager.setAPCallback(wifiConfigModeCallback);
   wifiManager.setSaveConfigCallback(wifiSaveConfigCallback);
   wifiManager.autoConnect();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    displayLog(WiFi.SSID());
+    displayLog(WiFi.localIP().toString());
+  }
+  else {
+    displayLog("No Wifi connection.");
+  }
+
 } 
 
 /*
