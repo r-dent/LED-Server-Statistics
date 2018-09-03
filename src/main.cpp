@@ -3,7 +3,9 @@
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
 #include <WiFiManager.h>
+#include <WebSocketsClient.h>
  
 #define OLED_RESET 0  // GPIO0
 Adafruit_SSD1306 OLED(OLED_RESET);
@@ -59,6 +61,48 @@ void wifiSaveConfigCallback () {
   displayLog("Sucessfully connected");
 }
 
+// WebSocket related.
+
+#define HEARTBEAT_INTERVAL 25000
+#define SOCKET_SERVER "192.168.1.72"
+#define SOCKET_PORT 8143
+
+uint64_t heartbeatTimestamp = 0;
+bool isConnected = false;
+
+WebSocketsClient webSocket;
+
+void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
+  switch (type) {
+    case WStype_DISCONNECTED:
+      Serial.printf("[WSc] Disconnected!\n");
+      isConnected = false;
+      break;
+
+    case WStype_CONNECTED: {
+      Serial.printf("[WSc] Connected to url: %s\n", payload);
+      isConnected = true;
+      displayLog(String("ws:") + SOCKET_SERVER + ":" + SOCKET_PORT);
+      // Send message to server when Connected. Socket.io upgrade confirmation message (required).
+      webSocket.sendTXT("5");
+      // Subscribe to statistics message.
+      webSocket.sendTXT("42[\"subscribe stats\",{}]");
+    }
+    break;
+
+    case WStype_TEXT:
+      Serial.printf("[WSc] get text: %s\n", payload);
+
+      // send message to server
+      // webSocket.sendTXT("message here");
+      break;
+
+    default:
+      Serial.print("Received WS message.\n");
+      break;
+  }
+}
+
 /*
  * Setup 
  */
@@ -91,6 +135,8 @@ void setup()   {
     displayLog("No Wifi connection.");
   }
 
+  webSocket.beginSocketIOSSL(SOCKET_SERVER, SOCKET_PORT);
+  webSocket.onEvent(webSocketEvent);
 } 
 
 /*
@@ -110,5 +156,19 @@ void loop() {
     FastLED.show(); 
 
     displayLog(blink ? "Switched ON" : "Switched OFF");
+  }
+
+  // WebSocket Server.
+
+  webSocket.loop();
+
+  if (isConnected) {
+    uint64_t now = millis();
+
+    if ((now - heartbeatTimestamp) > HEARTBEAT_INTERVAL) {
+      heartbeatTimestamp = now;
+      // socket.io heartbeat message
+      webSocket.sendTXT("2");
+    }
   }
 }
