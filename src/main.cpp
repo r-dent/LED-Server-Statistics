@@ -168,10 +168,11 @@ void setup()   {
   OLED.setTextColor(WHITE);
 
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
-  // Set LEDs to color.
+  // Set LEDs to black.
   for(int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(HUE_ORANGE, 255, 0);
+    leds[i] = BLACK;
   }
+  FastLED.show();
 
   displayLog("Welcome!");
 
