@@ -7,15 +7,26 @@
 #include <WiFiManager.h>
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
+
+struct Language {
+  char code[2] = "";
+  int userCount = 0;
+  HSVHue colorHue = HUE_RED;
+  int ledCount = 0;
+  int blink = 0;
+};
  
 #define OLED_RESET 0  // GPIO0
 Adafruit_SSD1306 OLED(OLED_RESET);
 
 #define NUM_LEDS 30
+#define INFLATION_BREAKPOINT (int)(NUM_LEDS / 3)
 #define LED_DATA_PIN D4
+#define LED_MAX_BRIGHNESS 255
+#define LED_BRIGHTNESS_STEP LED_MAX_BRIGHNESS / 5
 CRGB leds[NUM_LEDS];
-
-int lightness = 255 / 5;
+int blinking[NUM_LEDS];
+int brightness = LED_BRIGHTNESS_STEP;
 
 const int buttonPin = D3;
 int buttonState = 0;
@@ -50,7 +61,7 @@ void displayLog(String text) {
   OLED.display();
 }
 
-int hueForLanguage(const char* lang) {
+HSVHue hueForLanguage(const char* lang) {
   if (strcmp("en", lang) == 0) { return HUE_GREEN; }
   if (strcmp("es", lang) == 0) { return HUE_ORANGE; }
   if (strcmp("de", lang) == 0) { return HUE_YELLOW; }
@@ -119,26 +130,76 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
 
         if (strcmp(message[0], "statistics") == 0) {
           JsonObject& stats = message[1];
-          int ledPos = 0;
-          String summary = "";
-          // Iterate through all returned languages.
+
+          // Calculate overall count.
+          int overallUserCount = 0;
+          int languagesCount = 0;
+          for (const auto& kv : stats) {
+            overallUserCount = overallUserCount + (int)kv.value;
+            if (kv.value > 0) languagesCount++;
+          }
+
+          Language languages[languagesCount];
+
+          // Build array with language metadata.
+          int langIndex = 0;
           for (const auto& kv : stats) {
             int userCount = kv.value;
             if (userCount > 0) {
-              const char* lang = kv.key;
-              int hue = hueForLanguage(lang);
-              // Set LEDs to language specific color.
-              for (int i = ledPos; i < min(ledPos + userCount, NUM_LEDS); i++) {
-                leds[i] = CHSV(hue, 255, lightness);
-              }
-              ledPos += userCount;
-              summary += String(lang) + ":" + String(userCount) + " ";
+              const char* langCode = kv.key;
+              Language language = Language();
+              language.userCount = userCount;
+              language.colorHue = hueForLanguage(langCode);
+              strcpy(language.code, langCode);
+              languages[langIndex] = language;
+              langIndex++;
             }
           }
+
+          // Sort languages for count.
+          bool changed = false;
+          do {
+            changed = false;
+            for (int i = 0; i < languagesCount - 1; i++) {
+              if (languages[i].userCount < languages[i + 1].userCount) {
+                // Switch values.
+                Language l = languages[i];
+                languages[i] = languages[i + 1];
+                languages[i + 1] = l;
+                changed = true;
+              }
+            }
+          } while (changed);
+
+          // Only display half the count when LED strip is to short to show everything.
+          for (int i = 0; i < languagesCount; i++) {
+            Language l = languages[i];
+            if (overallUserCount > NUM_LEDS) {
+              languages[i].ledCount = l.userCount / 2;
+              languages[i].blink++;
+              overallUserCount -= (l.userCount - languages[i].ledCount);
+            }
+            else {
+              languages[i].ledCount = l.userCount;
+            }
+          }
+
+          int ledPos = 0;
+          String summary = "";
+          // Set LEDs to language specific color.
+          for (int i = 0; i < languagesCount; i++) {
+            Language l = languages[i];
+            for (int j = ledPos; j < min(ledPos + l.ledCount, NUM_LEDS); j++) {
+              leds[j] = CHSV(l.colorHue, 255, (l.blink > 0) ? brightness + LED_BRIGHTNESS_STEP : brightness);
+            }
+            ledPos += l.ledCount;
+            summary += String(l.code) + ":" + String(l.userCount) + " ";
+          }
+
           // Set the rest of the LEDs black.
           for (int i = ledPos; i < NUM_LEDS; i++) {
             leds[i] = BLACK;
-            ledPos++;
+            i++;
           }
           FastLED.show();
           displayLog(summary);
@@ -200,7 +261,7 @@ void loop() {
 
   buttonState = digitalRead(buttonPin);
   if (currTime - lastSwitchTime > 300 && buttonState == LOW) {
-    lightness = (lightness + (255 / 5)) % 255;
+    brightness = (brightness + LED_BRIGHTNESS_STEP) % LED_MAX_BRIGHNESS;
     lastSwitchTime = currTime;
     // Re-subscribe to trigger stats again.
     webSocket.sendTXT("42[\"subscribe stats\",{}]");
