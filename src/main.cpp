@@ -71,6 +71,7 @@ HSVHue hueForLanguage(const char* lang) {
   if (strcmp("pt", lang) == 0) { return HUE_PINK; }
   if (strcmp("nl", lang) == 0) { return HUE_AQUA; }
   if (strcmp("ru", lang) == 0) { return HUE_PURPLE; }
+  return HUE_RED;
 }
 
 // WiFi related.
@@ -93,15 +94,28 @@ void wifiSaveConfigCallback () {
 
 uint64_t heartbeatTimestamp = 0;
 bool isConnected = false;
+int disconnectCount = 0;
 String serverKey = "";
 
 WebSocketsClient webSocket;
 
+void subscribeStats() {
+  webSocket.sendTXT("42[\"subscribe stats\",{\"key\":\"" + serverKey + "\"}]");
+}
+
 void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
   switch (type) {
-    case WStype_DISCONNECTED:
+    case WStype_DISCONNECTED: {
       Serial.printf("[WSc] Disconnected!\n");
       isConnected = false;
+        // Stop trying, when we hit 10 disconnections.
+        disconnectCount++;
+        if (disconnectCount > 10) {
+          disconnectCount = 0;
+          displayLog("Couldn´t connect WS");
+          ESP.deepSleep(5000, RF_DISABLED);
+        }
+    }
       break;
 
     case WStype_CONNECTED: {
@@ -111,7 +125,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
       // Send message to server when Connected. Socket.io upgrade confirmation message (required).
       webSocket.sendTXT("5");
       // Subscribe to statistics message.
-      webSocket.sendTXT("42[\"subscribe stats\",{}]");
+      subscribeStats();
     }
     break;
 
@@ -276,7 +290,7 @@ void loop() {
     brightness = (brightness + LED_BRIGHTNESS_STEP) % LED_MAX_BRIGHNESS;
     lastSwitchTime = currTime;
     // Re-subscribe to trigger stats again.
-    webSocket.sendTXT("42[\"subscribe stats\",{\"key\":\"" + serverKey + "\"}]");
+    subscribeStats();
   }
 
   // WebSocket Server.
