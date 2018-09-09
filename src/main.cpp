@@ -175,7 +175,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
           for (int i = 0; i < languagesCount; i++) {
             Language l = languages[i];
             if (overallUserCount > NUM_LEDS) {
-              languages[i].ledCount = l.userCount / 2;
+              languages[i].ledCount = (int)floor(l.userCount / 2);
               languages[i].blink++;
               overallUserCount -= (l.userCount - languages[i].ledCount);
             }
@@ -199,14 +199,12 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
           // Set the rest of the LEDs black.
           for (int i = ledPos; i < NUM_LEDS; i++) {
             leds[i] = BLACK;
-            i++;
+            ledPos++;
           }
           FastLED.show();
           displayLog(summary);
         }
       }
-      // send message to server
-      // webSocket.sendTXT("message here");
     }
     break;
 
