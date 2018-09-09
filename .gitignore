@@ -5,3 +5,4 @@
 .vscode/launch.json
 /.vscode
 *.code-workspace
+/data/server.key

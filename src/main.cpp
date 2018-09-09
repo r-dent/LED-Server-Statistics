@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <FS.h>
 
 #include <WiFiManager.h>
 #include <WebSocketsClient.h>
@@ -92,6 +93,7 @@ void wifiSaveConfigCallback () {
 
 uint64_t heartbeatTimestamp = 0;
 bool isConnected = false;
+String serverKey = "";
 
 WebSocketsClient webSocket;
 
@@ -235,6 +237,18 @@ void setup()   {
 
   displayLog("Welcome!");
 
+  // Load server key from file.
+  SPIFFS.begin();
+  File f = SPIFFS.open("/server.key", "r");
+  if (!f) {
+    displayLog("Server key missing!");
+  } 
+  if (f.available()) {
+    serverKey = f.readStringUntil('\n');
+    Serial.println("Server key: " + serverKey);
+  }
+  SPIFFS.end();
+
   wifiManager.setAPCallback(wifiConfigModeCallback);
   wifiManager.setSaveConfigCallback(wifiSaveConfigCallback);
   wifiManager.autoConnect();
@@ -262,7 +276,7 @@ void loop() {
     brightness = (brightness + LED_BRIGHTNESS_STEP) % LED_MAX_BRIGHNESS;
     lastSwitchTime = currTime;
     // Re-subscribe to trigger stats again.
-    webSocket.sendTXT("42[\"subscribe stats\",{}]");
+    webSocket.sendTXT("42[\"subscribe stats\",{\"key\":\"" + serverKey + "\"}]");
   }
 
   // WebSocket Server.
