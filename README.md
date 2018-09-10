@@ -6,7 +6,7 @@ This uses Data from a WebSocket server to show how many people are currently act
 
 ### Setup
 
-This is a project made with the [platform.io](https://platform.io) IDE vor Visual Studio Code. Use it and install all dependencies via the IDE.
+This is a project made with the [platform io](https://platformio.org/) IDE vor Visual Studio Code. Use it and install all dependencies via the IDE.
 
 I used a Wemos D1 Mini and an LED Strip to run the code.
 
