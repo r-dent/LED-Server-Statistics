@@ -40,6 +40,8 @@ String logBuffer[logMaxLines];
 
 void displayLog(String text) {
   OLED.clearDisplay();
+  OLED.setTextWrap(false);
+  OLED.setTextSize(1);
   OLED.setCursor(0, 0);
 
   if (logBufferLines < logMaxLines) {
@@ -58,6 +60,20 @@ void displayLog(String text) {
   for (int i = 0; i < logBufferLines; i++) {
     OLED.println(logBuffer[i]);
   }
+
+  OLED.display();
+}
+
+void displaySummary(int count, String languageInfo) {
+  OLED.clearDisplay();
+  OLED.setTextWrap(false);
+  OLED.setCursor(0, 0);
+
+  OLED.setTextSize(3);
+  OLED.println(count);
+
+  OLED.setTextSize(1);
+  OLED.println(languageInfo);
 
   OLED.display();
 }
@@ -188,12 +204,13 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
           } while (changed);
 
           // Only display half the count when LED strip is to short to show everything.
+          int usedLEDsCount = overallUserCount;
           for (int i = 0; i < languagesCount; i++) {
             Language l = languages[i];
-            if (overallUserCount > NUM_LEDS) {
+            if (usedLEDsCount > NUM_LEDS) {
               languages[i].ledCount = (int)floor(l.userCount / 2);
               languages[i].blink++;
-              overallUserCount -= (l.userCount - languages[i].ledCount);
+              usedLEDsCount -= (l.userCount - languages[i].ledCount);
             }
             else {
               languages[i].ledCount = l.userCount;
@@ -201,7 +218,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
           }
 
           int ledPos = 0;
-          String summary = "";
+          String langInfo = "";
           // Set LEDs to language specific color.
           for (int i = 0; i < languagesCount; i++) {
             Language l = languages[i];
@@ -209,7 +226,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
               leds[j] = CHSV(l.colorHue, 255, (l.blink > 0) ? brightness + LED_BRIGHTNESS_STEP : brightness);
             }
             ledPos += l.ledCount;
-            summary += String(l.code) + ":" + String(l.userCount) + " ";
+            langInfo += String(l.code) + " "; // + ":" + String(l.userCount) + " ";
           }
 
           // Set the rest of the LEDs black.
@@ -218,7 +235,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
             ledPos++;
           }
           FastLED.show();
-          displayLog(summary);
+          displaySummary(overallUserCount, langInfo);
         }
       }
     }
@@ -238,8 +255,6 @@ void setup()   {
   Serial.begin(115200);
 
   OLED.begin();
-  OLED.setTextWrap(false);
-  OLED.setTextSize(1);
   OLED.setTextColor(WHITE);
 
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
