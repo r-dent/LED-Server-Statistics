@@ -89,8 +89,8 @@ void wifiSaveConfigCallback () {
 // WebSocket related.
 
 #define HEARTBEAT_INTERVAL 25000
-#define SOCKET_SERVER "rapscript.net"
-#define SOCKET_PORT 8143
+#define SOCKET_SERVER "ws.rapscript.net"
+#define SOCKET_PORT 443
 
 uint64_t heartbeatTimestamp = 0;
 bool isConnected = false;
