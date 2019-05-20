@@ -1,6 +1,7 @@
 #include <time.h>
 #include <FastLED.h>
 #include <Arduino.h>
+#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <FS.h>
@@ -17,8 +18,11 @@ struct Language {
   int blink = 0;
 };
  
-#define OLED_RESET 0  // GPIO0
-Adafruit_SSD1306 OLED(OLED_RESET);
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 OLED(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #define NUM_LEDS 30
 #define INFLATION_BREAKPOINT (int)(NUM_LEDS / 3)
@@ -128,7 +132,7 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
         disconnectCount++;
         if (disconnectCount > 10) {
           disconnectCount = 0;
-          displayLog("Couldn´t connect WS");
+          displayLog("Couldn't connect WS");
           ESP.deepSleep(5000, RF_DISABLED);
         }
     }
@@ -157,18 +161,18 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
         String messageString = payloadString.substring(firstBracket);
         // Parse JSON. Assume that wa have a JSON array with [messageType, content].
         const size_t bufferSize = JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(8) + 80;
-        DynamicJsonBuffer jsonBuffer(bufferSize);
-        JsonArray& message = jsonBuffer.parseArray(messageString);
+        DynamicJsonDocument jsonDoc(bufferSize);
+        deserializeJson(jsonDoc, messageString);
 
-        if (strcmp(message[0], "statistics") == 0) {
-          JsonObject& stats = message[1];
+        if (strcmp(jsonDoc[0], "statistics") == 0) {
+          JsonObject stats = jsonDoc[1];
 
           // Calculate overall count.
           int overallUserCount = 0;
           int languagesCount = 0;
           for (const auto& kv : stats) {
-            overallUserCount = overallUserCount + (int)kv.value;
-            if (kv.value > 0) languagesCount++;
+            overallUserCount = overallUserCount + (int)kv.value();
+            if (kv.value() > 0) languagesCount++;
           }
 
           Language languages[languagesCount];
@@ -176,9 +180,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
           // Build array with language metadata.
           int langIndex = 0;
           for (const auto& kv : stats) {
-            int userCount = kv.value;
+            int userCount = kv.value();
             if (userCount > 0) {
-              const char* langCode = kv.key;
+              const char* langCode = kv.key().c_str();
               Language language = Language();
               language.userCount = userCount;
               language.colorHue = hueForLanguage(langCode);
@@ -252,9 +256,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
  */
 
 void setup()   {
+  Wire.begin(D1, D2);
   Serial.begin(115200);
-
-  OLED.begin();
+  OLED.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   OLED.setTextColor(WHITE);
 
   FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS);
